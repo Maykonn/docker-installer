@@ -24,7 +24,7 @@ create_work_dir() {
 clone_docker_repo() {
     REPAIRQ_DOCKER_DIR=${REPAIRQ_LOCAL_PROJECTS_DIR}${REPAIRQ_DOCKER_DIR_SUFFIX}
 
-    if [[ "${REPAIRQ_DOCKER_REPOSITORY_SKIP_CLONE}" -eq 1 ]]; then
+    if [[ ${REPAIRQ_DOCKER_REPOSITORY_CLONE} -eq 0 ]]; then
         return 1
     fi
 
@@ -59,7 +59,7 @@ new_branch_and_copies_tpl() {
         done
 
         # Successful checkout or start again
-        if [[ "${REPAIRQ_DOCKER_REPOSITORY_NEW_BRANCH_RSYNC}" -eq 1 ]]; then
+        if [[ ${REPAIRQ_DOCKER_REPOSITORY_NEW_BRANCH_CHECKOUT} -eq 1 ]]; then
             git checkout -b "user/${BRANCH}" || $(BRANCH="" && checkout_new_branch)
         fi
     }
@@ -68,5 +68,7 @@ new_branch_and_copies_tpl() {
     git branch
 
     # Copying the REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR to a directory corresponding your BRANCH name
-    rsync -avP ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_DOCKER_DIR}/dev-local/${BRANCH}/
+    if [[ ${REPAIRQ_DOCKER_REPOSITORY_NEW_BRANCH_RSYNC} -eq 1 ]]; then
+        rsync -avP ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_DOCKER_DIR}/dev-local/${BRANCH}/
+    fi
 }
