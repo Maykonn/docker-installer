@@ -16,6 +16,7 @@ echo $'Starting the installation\n'
 
 create_work_dir
 clone_docker_repo
-new_branch_and_copies_tpl
+new_branch_checkout
+
 
 echo $'\nInstallation finished'

@@ -49,7 +49,7 @@ clone_docker_repo() {
     cd "$REPAIRQ_DOCKER_DIR" && git clone ${REPAIRQ_DOCKER_REPOSITORY_URL} ${REPAIRQ_DOCKER_DIR}
 }
 
-new_branch_and_copies_tpl() {
+new_branch_checkout() {
     cd "$REPAIRQ_DOCKER_DIR"
 
     checkout_new_branch() {
@@ -72,3 +72,4 @@ new_branch_and_copies_tpl() {
         rsync -avP ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_DOCKER_DIR}/dev-local/${BRANCH}/
     fi
 }
+
