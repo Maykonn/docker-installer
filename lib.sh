@@ -48,17 +48,17 @@ check_requirements() {
 }
 
 create_work_dir() {
-    # Change the $REPAIRQ_LOCAL_PROJECTS_DIR var to $HOME plus the user given value or keep the default value if the given value is blank
-    read -rp $'\nPath to your RepairQ local development directory (will be under '${HOME}$').
-If blank default will be assumed ['${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}' that is '${REPAIRQ_LOCAL_PROJECTS_DIR}']: ' WORKDIR
+    # Change the $REPAIRQ_LOCAL_PROJECTS_DIR var to $HOME_PATH plus the user given value or keep the default value if the given value is blank
+    read -rp $'\nPath to your RepairQ local development directory (will be under '${HOME_PATH}').
+If blank default will be assumed (e.g. type '${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}' if you want '${REPAIRQ_LOCAL_PROJECTS_DIR}'): ' WORKDIR
 
     if [[ ! -z ${WORKDIR} ]]; then
-        REPAIRQ_LOCAL_PROJECTS_DIR=${HOME}${WORKDIR}
+        REPAIRQ_LOCAL_PROJECTS_DIR=${HOME_PATH}${WORKDIR}
     fi
 
     # Creating the RepairQ work dir with the REPAIRQ_LOCAL_PROJECTS_DIR value (if not already exist)
     if [[ ! -d ${REPAIRQ_LOCAL_PROJECTS_DIR} ]]; then
-        mkdir "$REPAIRQ_LOCAL_PROJECTS_DIR"
+        mkdir -p "$REPAIRQ_LOCAL_PROJECTS_DIR"
         echo $'\nDirectory created:'  ${REPAIRQ_LOCAL_PROJECTS_DIR}
     fi
 
@@ -75,31 +75,37 @@ If blank default will be assumed ['${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}' that is
 }
 
 clone_docker_repo() {
-    REPAIRQ_DOCKER_DIR=${REPAIRQ_LOCAL_PROJECTS_DIR}${REPAIRQ_DOCKER_DIR_SUFFIX}
-
-    if [[ ${REPAIRQ_DOCKER_REPOSITORY_CLONE} -eq 0 ]]; then
-        return 1
-    fi
+    REPAIRQ_DOCKER_DIR=${REPAIRQ_LOCAL_PROJECTS_DIR}/${REPAIRQ_DOCKER_DIR_SUFFIX}
 
     echo $'\nCreating the RepairQ-Docker('${REPAIRQ_DOCKER_REPOSITORY_URL}$') local project.'
 
-    # The directory already exists, asking the user how to proceed
+    # The RepairQ-Docker directory already exists, asking the user how to proceed
     if [[ -d ${REPAIRQ_DOCKER_DIR} ]]; then
-        read -rp $'Directory '${REPAIRQ_DOCKER_DIR}' already exists, do you want to overwrite it? [yes/cancel]: ' REPLY
+        while ! [[ "$REPLY" =~ ^(y|yes|n|no)$ ]]; do
+            read -rp $'Directory '${REPAIRQ_DOCKER_DIR}' already exists, do you want to overwrite it? [y/n]: ' REPLY
+        done
 
-        # "y|yes|j|ja|s|si|o|oui", or cancel the installation
-        [[ ${REPLY,,} =~ ^(c|cancel|)$ ]] && { echo "Selected Cancel"; exit 1; }
-        if [[ ${REPLY,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
+        [[ ${REPLY,,} =~ ^(n|no)$ ]] && { echo "Canceled" && exit 1; }
+        if [[ ${REPLY,,} =~ ^(y|yes)$ ]]; then
             echo $'Removing the '${REPAIRQ_DOCKER_DIR}' dir'
             rm -rf ${REPAIRQ_DOCKER_DIR}
         fi
     fi
 
-    # If not cancelled by the user, continues to clone the repository into the correct directory:
-    mkdir "$REPAIRQ_DOCKER_DIR"
+    mkdir -p "$REPAIRQ_DOCKER_DIR"
     echo $'\nDirectory created:'  ${REPAIRQ_DOCKER_DIR}
-    echo "Cloning ${REPAIRQ_DOCKER_REPOSITORY_URL} into ${REPAIRQ_DOCKER_DIR}"
-    cd "$REPAIRQ_DOCKER_DIR" && git clone ${REPAIRQ_DOCKER_REPOSITORY_URL} ${REPAIRQ_DOCKER_DIR}
+
+    if [[ ${REPAIRQ_DOCKER_GIT} -eq 1 ]]; then
+        echo "Cloning ${REPAIRQ_DOCKER_REPOSITORY_URL} into ${REPAIRQ_DOCKER_DIR}"
+
+        git clone ${REPAIRQ_DOCKER_REPOSITORY_URL} ${REPAIRQ_DOCKER_DIR}
+        cloned=$?
+
+        if [[ ! "$cloned" -eq 0 ]]; then
+            echo >&2
+            clone_docker_repo
+        fi
+    fi
 }
 
 new_branch_checkout() {
@@ -112,7 +118,7 @@ new_branch_checkout() {
         done
 
         # Successful checkout or start again
-        if [[ ${REPAIRQ_DOCKER_REPOSITORY_NEW_BRANCH_CHECKOUT} -eq 1 ]]; then
+        if [[ ${REPAIRQ_DOCKER_GIT} -eq 1 ]]; then
             git checkout -b "user/${BRANCH}" || $(BRANCH="" && checkout_new_branch)
         fi
 
@@ -124,18 +130,16 @@ new_branch_checkout() {
     git branch
 
     # Copying the REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR to a directory corresponding your BRANCH name
-    if [[ ${REPAIRQ_DOCKER_REPOSITORY_NEW_BRANCH_RSYNC} -eq 1 ]]; then
-        rsync -avP ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
-    fi
+    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
 }
 
 configure_installation_files() {
     REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/test/RepairQ-Docker/dev-local/maykonn"
     cd "$REPAIRQ_USER_SPECIFIC_DOCKER_DIR"
 
-    echo "Configuring now docker-compose.yml..."
+    echo "Configuring docker-compose.yml..."
 
-    sed -i "s@{{home_path}}@$HOME_PATH@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
+    sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
     sed -i "s@{{repairq_local_sn}}@$REPAIRQ_LOCAL_SN@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
     sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
 
