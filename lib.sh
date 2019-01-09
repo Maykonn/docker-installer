@@ -85,15 +85,15 @@ clone_docker_repo() {
             read -rp $'Directory '${REPAIRQ_DOCKER_DIR}' already exists, do you want to overwrite it? [y/n]: ' REPLY
         done
 
-        [[ ${REPLY,,} =~ ^(n|no)$ ]] && { echo "Canceled" && exit 1; }
+        #[[ ${REPLY,,} =~ ^(n|no)$ ]] && { echo "Canceled" && exit 1; }
         if [[ ${REPLY,,} =~ ^(y|yes)$ ]]; then
             echo $'Removing the '${REPAIRQ_DOCKER_DIR}' dir'
             rm -rf ${REPAIRQ_DOCKER_DIR}
         fi
+    else
+        mkdir -p "$REPAIRQ_DOCKER_DIR"
+        echo $'\nDirectory created:'  ${REPAIRQ_DOCKER_DIR}
     fi
-
-    mkdir -p "$REPAIRQ_DOCKER_DIR"
-    echo $'\nDirectory created:'  ${REPAIRQ_DOCKER_DIR}
 
     if [[ ${REPAIRQ_DOCKER_GIT} -eq 1 ]]; then
         echo "Cloning ${REPAIRQ_DOCKER_REPOSITORY_URL} into ${REPAIRQ_DOCKER_DIR}"
@@ -133,15 +133,29 @@ new_branch_checkout() {
     rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
 }
 
+test() {
+    BRANCH="maykonn"
+}
+
 configure_installation_files() {
-    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/test/RepairQ-Docker/dev-local/maykonn"
+    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/Projects/repairq/RepairQ-Docker"
     cd "$REPAIRQ_USER_SPECIFIC_DOCKER_DIR"
 
-    echo "Configuring docker-compose.yml..."
+    echo $'\nPreparing installation files'
 
-    sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
-    sed -i "s@{{repairq_local_sn}}@$REPAIRQ_LOCAL_SN@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
-    sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml
+    APACHE_DOCUMENT_ROOT="/Users/${USER}${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}"
+    APACHE_SSL_CERT_FILE="${APACHE_DOCUMENT_ROOT}/dev-local/${BRANCH}/certificate.crt"
+    APACHE_SSL_CERT_KEY_FILE="${APACHE_DOCUMENT_ROOT}/dev-local/${BRANCH}/privateKey.key"
 
-    echo "docker-compose.yml configured"
+    DOCKER_COMPOSE_YML_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml"
+    sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${DOCKER_COMPOSE_YML_FILE}
+    sed -i "s@{{repairq_local_sn}}@$REPAIRQ_LOCAL_SN@g" ${DOCKER_COMPOSE_YML_FILE}
+    sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${DOCKER_COMPOSE_YML_FILE}
+    echo ${DOCKER_COMPOSE_YML_FILE}" -> OK"
+
+    RQ_CONF_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/rq.conf"
+    sed -i "s@{{document_root}}@/${APACHE_DOCUMENT_ROOT}@g" ${RQ_CONF_FILE} #DocumentRoot /Users/cinq/Projects/repairq
+    sed -i "s@{{ssl_cert_file}}@/${APACHE_SSL_CERT_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/certificate.crt"
+	sed -i "s@{{ssl_cert_key_file}}@/${APACHE_SSL_CERT_KEY_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateKeyFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/privateKey.key"
+    echo ${RQ_CONF_FILE}" -> OK"
 }
