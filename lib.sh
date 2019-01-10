@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 check_requirements() {
-    echo 'Checking requirements...'
+    echo 'Checking dependencies:'
 
     # Checking and installing Docker
     if ! docker_loc="$(type -p "docker")" || [[ -z ${docker_loc} ]]; then
-        read -rp "Docker is required but not found, do you want to install Docker now? [y/n]: " ANSWER
-        if [[ ${ANSWER,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
+        read -rp "Docker is required but not found, do you want to install Docker now? [y/n]: " REPLY
+        if [[ ${REPLY,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
             sudo apt-get update
             sudo apt-get install \
                 apt-transport-https \
@@ -30,11 +30,12 @@ check_requirements() {
             sudo docker run hello-world
         fi
     fi
+    echo $'Docker              -> OK'
 
     # Checking and installing Docker Compose
     if ! docker_compose_loc="$(type -p "docker-compose")" || [[ -z ${docker_compose_loc} ]]; then
-        read -rp $'\nDocker Compose is required but not found, do you want to install Docker Compose now? [y/n]: ' ANSWER
-        if [[ ${ANSWER,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
+        read -rp $'\nDocker Compose is required but not found, do you want to install Docker Compose now? [y/n]: ' REPLY
+        if [[ ${REPLY,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
             echo $'\nInstalling Docker Compose:'
             curl -L https://github.com/docker/compose/releases/download/latest/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
             chmod +x /usr/local/bin/docker-compose
@@ -43,43 +44,65 @@ check_requirements() {
             docker-compose --version
         fi
     fi
+    echo 'Docker Compose      -> OK'
 
-    echo 'Continuing the installation'
+    SSH_PUB_KEY=$(cat ~/.ssh/id_rsa.pub)
+    if [[ -z ${SSH_PUB_KEY} ]]; then
+        read -rp 'SSH id_rsa.pub key not found for current user, do you want to generate the ~/.ssh/id_rsa.pub now? [y/c]: ' REPLY
+
+        [[ ${REPLY,,} =~ ^(n|no|c|)$ ]] && { echo "Canceled" && exit 1; }
+        if [[ ${REPLY,,} =~ ^(y|yes)$ ]]; then
+            while [[ -z "${EMAIL}" ]]; do
+                echo 'generating'
+                read -rp 'Provide an e-mail for id_rsa.pub: ' EMAIL
+                ssh-keygen -t rsa -b 4096 -C ${EMAIL}
+                eval "$(ssh-agent -s)"
+                ssh-add ~/.ssh/id_rsa
+            done
+        fi
+
+        SSH_PUB_KEY=$(cat ~/.ssh/id_rsa.pub)
+    fi
+    echo 'User SSH id_rsa.pub -> OK'
 }
 
 create_work_dir() {
-    # Change the $REPAIRQ_LOCAL_PROJECTS_DIR var to $HOME_PATH plus the user given value or keep the default value if the given value is blank
-    read -rp $'\nPath to your RepairQ local development directory (will be under '${HOME_PATH}').
-If blank default will be assumed (e.g. type '${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}' if you want '${REPAIRQ_LOCAL_PROJECTS_DIR}'): ' WORKDIR
+#    read -rp $'Path to your RepairQ local development directory (will be under '${HOME_PATH}').
+#If blank default will be assumed (e.g. type '${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}' if you want '${REPAIRQ_LOCAL_PROJECTS_DIR}'): ' WORKDIR
+#
+#    if [[ ! -z ${WORKDIR} ]]; then
+#        REPAIRQ_LOCAL_PROJECTS_DIR=${HOME_PATH}${WORKDIR}
+#    fi
 
-    if [[ ! -z ${WORKDIR} ]]; then
-        REPAIRQ_LOCAL_PROJECTS_DIR=${HOME_PATH}${WORKDIR}
-    fi
-
-    # Creating the RepairQ work dir with the REPAIRQ_LOCAL_PROJECTS_DIR value (if not already exist)
+    # Creating the RepairQ workdir with the REPAIRQ_LOCAL_PROJECTS_DIR value (if not already exist)
     if [[ ! -d ${REPAIRQ_LOCAL_PROJECTS_DIR} ]]; then
         mkdir -p "$REPAIRQ_LOCAL_PROJECTS_DIR"
-        echo $'\nDirectory created:'  ${REPAIRQ_LOCAL_PROJECTS_DIR}
+        echo $'\nDirectory created:' ${REPAIRQ_LOCAL_PROJECTS_DIR}
     fi
 
-    echo 'Local work dir for RepairQ is:' ${REPAIRQ_LOCAL_PROJECTS_DIR}
-
-    # Removing the symbolic link to your RepairQ work directory (if already exists)
-    if [[ -L ${REPAIRQ_LOCAL_SN} ]]; then
-        rm ${REPAIRQ_LOCAL_SN}
-    fi
-
-    # Creating the symbolic link to your RepairQ work directory
-    ln -s ${REPAIRQ_LOCAL_PROJECTS_DIR} ${REPAIRQ_LOCAL_SN}
-    echo "Symbolic link to RepairQ work directory is [${REPAIRQ_LOCAL_SN}]"
+    echo $'\nLocal work dir for RepairQ is:' ${REPAIRQ_LOCAL_PROJECTS_DIR}$'\n'
 }
 
 clone_docker_repo() {
-    REPAIRQ_DOCKER_DIR=${REPAIRQ_LOCAL_PROJECTS_DIR}/${REPAIRQ_DOCKER_DIR_SUFFIX}
+    REPAIRQ_DOCKER_DIR="${REPAIRQ_LOCAL_PROJECTS_DIR}/${REPAIRQ_DOCKER_DIR_SUFFIX}"
 
-    echo $'\nCreating the RepairQ-Docker('${REPAIRQ_DOCKER_REPOSITORY_URL}$') local project.'
+    echo $'Creating the RepairQ-Docker('${REPAIRQ_DOCKER_REPOSITORY_URL}$') local project.'
 
-    # The RepairQ-Docker directory already exists, asking the user how to proceed
+    clone() {
+        if [[ ${REPAIRQ_DOCKER_GIT} -eq 1 ]]; then
+            echo "Cloning ${REPAIRQ_DOCKER_REPOSITORY_URL} into ${REPAIRQ_DOCKER_DIR}"
+
+            git clone ${REPAIRQ_DOCKER_REPOSITORY_URL} ${REPAIRQ_DOCKER_DIR}
+            cloned=$?
+
+            if [[ ! "$cloned" -eq 0 ]]; then
+                echo >&2
+                clone_docker_repo
+            fi
+        fi
+    }
+
+    # The RepairQ-Docker directory already exists and is not empty, asking the user how to proceed
     if [[ -d ${REPAIRQ_DOCKER_DIR} ]]; then
         while ! [[ "$REPLY" =~ ^(y|yes|n|no)$ ]]; do
             read -rp $'Directory '${REPAIRQ_DOCKER_DIR}' already exists, do you want to overwrite it? [y/n]: ' REPLY
@@ -89,22 +112,13 @@ clone_docker_repo() {
         if [[ ${REPLY,,} =~ ^(y|yes)$ ]]; then
             echo $'Removing the '${REPAIRQ_DOCKER_DIR}' dir'
             rm -rf ${REPAIRQ_DOCKER_DIR}
+            clone
         fi
+
     else
         mkdir -p "$REPAIRQ_DOCKER_DIR"
-        echo $'\nDirectory created:'  ${REPAIRQ_DOCKER_DIR}
-    fi
-
-    if [[ ${REPAIRQ_DOCKER_GIT} -eq 1 ]]; then
-        echo "Cloning ${REPAIRQ_DOCKER_REPOSITORY_URL} into ${REPAIRQ_DOCKER_DIR}"
-
-        git clone ${REPAIRQ_DOCKER_REPOSITORY_URL} ${REPAIRQ_DOCKER_DIR}
-        cloned=$?
-
-        if [[ ! "$cloned" -eq 0 ]]; then
-            echo >&2
-            clone_docker_repo
-        fi
+        echo $'Directory created:'  ${REPAIRQ_DOCKER_DIR}
+        clone
     fi
 }
 
@@ -123,7 +137,7 @@ new_branch_checkout() {
         fi
 
         # Variable to represent the user specific directory to work with docker
-        REPAIRQ_USER_SPECIFIC_DOCKER_DIR=${REPAIRQ_DOCKER_DIR}/dev-local/${BRANCH}/
+        REPAIRQ_USER_SPECIFIC_DOCKER_DIR=${REPAIRQ_DOCKER_DIR}/dev-local/${BRANCH}
     }
 
     checkout_new_branch
@@ -133,29 +147,33 @@ new_branch_checkout() {
     rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
 }
 
-test() {
-    BRANCH="maykonn"
-}
-
 configure_installation_files() {
-    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/Projects/repairq/RepairQ-Docker"
+    BRANCH="maykonn"
+    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/rq/RepairQ-Docker/dev-local/maykonn"
+    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
+
     cd "$REPAIRQ_USER_SPECIFIC_DOCKER_DIR"
 
     echo $'\nPreparing installation files'
 
-    APACHE_DOCUMENT_ROOT="/Users/${USER}${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}"
-    APACHE_SSL_CERT_FILE="${APACHE_DOCUMENT_ROOT}/dev-local/${BRANCH}/certificate.crt"
-    APACHE_SSL_CERT_KEY_FILE="${APACHE_DOCUMENT_ROOT}/dev-local/${BRANCH}/privateKey.key"
+    #APACHE_DOCUMENT_ROOT="/Users/${USER}${REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX}"
+    APACHE_DOCUMENT_ROOT="/Users/${USER}/rq"
+    APACHE_SSL_CERT_FILE="${APACHE_DOCUMENT_ROOT}/${REPAIRQ_DOCKER_DIR_SUFFIX}/dev-local/${BRANCH}/certificate.crt"
+    APACHE_SSL_CERT_KEY_FILE="${APACHE_DOCUMENT_ROOT}/${REPAIRQ_DOCKER_DIR_SUFFIX}/dev-local/${BRANCH}/privateKey.key"
 
     DOCKER_COMPOSE_YML_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/docker-compose.yml"
-    sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${DOCKER_COMPOSE_YML_FILE}
-    sed -i "s@{{repairq_local_sn}}@$REPAIRQ_LOCAL_SN@g" ${DOCKER_COMPOSE_YML_FILE}
-    sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${DOCKER_COMPOSE_YML_FILE}
+    sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${DOCKER_COMPOSE_YML_FILE} # /home:/Users
+    sed -i "s@{{repairq_projects_directory}}@$REPAIRQ_LOCAL_PROJECTS_DIR@g" ${DOCKER_COMPOSE_YML_FILE} # /home/username/rq
+    sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${DOCKER_COMPOSE_YML_FILE} # /home/username/rq/RepairQ-Docker
     echo ${DOCKER_COMPOSE_YML_FILE}" -> OK"
 
     RQ_CONF_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/rq.conf"
-    sed -i "s@{{document_root}}@/${APACHE_DOCUMENT_ROOT}@g" ${RQ_CONF_FILE} #DocumentRoot /Users/cinq/Projects/repairq
-    sed -i "s@{{ssl_cert_file}}@/${APACHE_SSL_CERT_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/certificate.crt"
-	sed -i "s@{{ssl_cert_key_file}}@/${APACHE_SSL_CERT_KEY_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateKeyFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/privateKey.key"
+    sed -i "s@{{document_root}}@${APACHE_DOCUMENT_ROOT}@g" ${RQ_CONF_FILE} #DocumentRoot /Users/cinq/Projects/repairq
+    sed -i "s@{{ssl_cert_file}}@${APACHE_SSL_CERT_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/certificate.crt"
+	sed -i "s@{{ssl_cert_key_file}}@${APACHE_SSL_CERT_KEY_FILE}@g" ${RQ_CONF_FILE} #SSLCertificateKeyFile "/Users/cinq/Projects/repairq/RepairQ-Docker/dev-local/maykonn/privateKey.key"
     echo ${RQ_CONF_FILE}" -> OK"
+
+    DOCKER_ENTRYPOINT_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/dockerfiles/bin/docker-entrypoint.sh"
+    sed -i "s*{{ssh_id_rsa}}*${SSH_PUB_KEY}*g" ${DOCKER_ENTRYPOINT_FILE} # value of ssh .pub key (@see the check_requirements function)
+    echo ${DOCKER_ENTRYPOINT_FILE}" -> OK"
 }
