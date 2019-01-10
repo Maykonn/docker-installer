@@ -17,9 +17,9 @@ REPAIRQ_USER_SPECIFIC_DOCKER_DIR=""
 echo $'Starting the installation\n'
 
 check_requirements
-create_work_dir
-clone_docker_repo
-new_branch_checkout
+#create_work_dir
+#clone_docker_repo
+#new_branch_checkout
 configure_installation_files
 
 echo $'\nInstallation finished'

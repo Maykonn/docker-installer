@@ -148,9 +148,9 @@ new_branch_checkout() {
 }
 
 configure_installation_files() {
-#    BRANCH="maykonn"
-#    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/rq/RepairQ-Docker/dev-local/maykonn"
-#    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
+    BRANCH="maykonn"
+    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/rq/RepairQ-Docker/dev-local/maykonn"
+    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
 
     cd "$REPAIRQ_USER_SPECIFIC_DOCKER_DIR"
 
@@ -177,4 +177,26 @@ configure_installation_files() {
     DOCKER_ENTRYPOINT_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/dockerfiles/bin/docker-entrypoint.sh"
     sed -i "s*{{ssh_id_rsa}}*${SSH_PUB_KEY}*g" ${DOCKER_ENTRYPOINT_FILE} # value of ssh .pub key (@see the check_requirements function)
     echo ${DOCKER_ENTRYPOINT_FILE}" -> OK"
+
+    addhost() {
+        HOSTNAME=$1
+        HOSTS_LINE="$IP\t$HOSTNAME"
+        if [ -n "$(grep $HOSTNAME /etc/hosts)" ]
+            then
+                echo "$HOSTNAME already exists : $(grep $HOSTNAME $ETC_HOSTS)"
+            else
+                echo "Adding $HOSTNAME to your $ETC_HOSTS";
+                sudo -- sh -c -e "echo '$HOSTS_LINE' >> /etc/hosts";
+
+                if [ -n "$(grep $HOSTNAME /etc/hosts)" ]
+                    then
+                        echo "$HOSTNAME was added succesfully \n $(grep $HOSTNAME /etc/hosts)";
+                    else
+                        echo "Failed to Add $HOSTNAME, Try again!";
+                fi
+        fi
+    }
+
+    addhost "${BRANCH}.rq.test"
+    echo "/etc/hosts                 -> OK"
 }
