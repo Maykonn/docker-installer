@@ -179,20 +179,23 @@ configure_installation_files() {
     echo ${DOCKER_ENTRYPOINT_FILE}" -> OK"
 
     addhost() {
-        HOSTNAME=$1
-        HOSTS_LINE="$IP\t$HOSTNAME"
-        if [ -n "$(grep $HOSTNAME /etc/hosts)" ]
-            then
-                echo "$HOSTNAME already exists : $(grep $HOSTNAME $ETC_HOSTS)"
-            else
-                echo "Adding $HOSTNAME to your $ETC_HOSTS";
-                sudo -- sh -c -e "echo '$HOSTS_LINE' >> /etc/hosts";
+        ETC_HOSTS="/etc/hosts"
+        IP="127.0.0.1"
 
-                if [ -n "$(grep $HOSTNAME /etc/hosts)" ]
+        HOSTNAME=$1
+        HOSTS_LINE="${IP}\t${HOSTNAME}"
+        if [[ -n "$(grep ${HOSTNAME} /etc/hosts)" ]]
+            then
+                echo ${HOSTNAME} $' already exists:\n'$(grep ${HOSTNAME} ${ETC_HOSTS})
+            else
+                echo "Adding ${HOSTNAME} to your ${ETC_HOSTS}";
+                sudo -- sh -c -e "echo '${HOSTS_LINE}' >> ${ETC_HOSTS}";
+
+                if [[ -n "$(grep ${HOSTNAME} /etc/hosts)" ]]
                     then
-                        echo "$HOSTNAME was added succesfully \n $(grep $HOSTNAME /etc/hosts)";
+                        echo ${HOSTNAME} $' was added successfully:\n' $(grep ${HOSTNAME} /etc/hosts);
                     else
-                        echo "Failed to Add $HOSTNAME, Try again!";
+                        echo "Failed to Add ${HOSTNAME}, Try again!";
                 fi
         fi
     }
