@@ -128,7 +128,7 @@ new_branch_checkout() {
     checkout_new_branch() {
         # Empty is not an acceptable value
         while [[ -z "$BRANCH" ]]; do
-            read -rp $'\nEnter your new branch name [e.g. '${USER}']: ' BRANCH
+            read -rp $'\nEnter your new branch name [e.g. type '${USER}' for user/'${USER}']: ' BRANCH
         done
 
         # Successful checkout or start again
@@ -148,9 +148,9 @@ new_branch_checkout() {
 }
 
 configure_installation_files() {
-    BRANCH="maykonn"
-    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/rq/RepairQ-Docker/dev-local/maykonn"
-    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
+#    BRANCH="maykonn"
+#    REPAIRQ_USER_SPECIFIC_DOCKER_DIR="/var/www/cinq/rq/RepairQ-Docker/dev-local/maykonn"
+#    rsync -a ${REPAIRQ_DOCKER_DIR}/dev-local/${REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR}/ ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}
 
     cd "$REPAIRQ_USER_SPECIFIC_DOCKER_DIR"
 
@@ -165,6 +165,7 @@ configure_installation_files() {
     sed -i "s@{{home_path}}@$HOME_PATH_PREFIX@g" ${DOCKER_COMPOSE_YML_FILE} # /home:/Users
     sed -i "s@{{repairq_projects_directory}}@$REPAIRQ_LOCAL_PROJECTS_DIR@g" ${DOCKER_COMPOSE_YML_FILE} # /home/username/rq
     sed -i "s@{{repairq_user_specific_docker_dir}}@$REPAIRQ_USER_SPECIFIC_DOCKER_DIR@g" ${DOCKER_COMPOSE_YML_FILE} # /home/username/rq/RepairQ-Docker
+    sed -i "s@{{user_rq_address_alias}}@$BRANCH.rq.test@g" ${DOCKER_COMPOSE_YML_FILE} # e.g.: maykonn.rq.test
     echo ${DOCKER_COMPOSE_YML_FILE}" -> OK"
 
     RQ_CONF_FILE="${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/rq.conf"
