@@ -202,4 +202,10 @@ configure_installation_files() {
 
     addhost "${BRANCH}.rq.test"
     echo "/etc/hosts                 -> OK"
+
+    openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
+        -keyout ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/privateKey.key \
+        -out ${REPAIRQ_USER_SPECIFIC_DOCKER_DIR}/certificate.crt
+
+    echo ${DOCKER_ENTRYPOINT_FILE}" -> OK"
 }
