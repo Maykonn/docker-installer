@@ -1,25 +1,48 @@
 #!/bin/bash
-source ./lib.sh
 
-HOME_PATH_PREFIX="/var/www" # /home
-HOME_PATH=${HOME_PATH_PREFIX}"/${USER}"
+check_requirements() {
+    echo 'Checking dependencies:'
 
-#REPAIRQ_LOCAL_PROJECTS_DIR_SUFFIX="/rq"
-REPAIRQ_LOCAL_PROJECTS_DIR="${HOME_PATH}/rq"
+    # Checking and installing Docker
+    if ! docker_loc="$(type -p "docker")" || [[ -z ${docker_loc} ]]; then
+        read -rp "Docker is required but not found, do you want to install Docker now? [y/n]: " REPLY
+        if [[ ${REPLY,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
+            sudo apt-get update
+            sudo apt-get install \
+                apt-transport-https \
+                ca-certificates \
+                curl \
+                software-properties-common
 
-REPAIRQ_DOCKER_LINUX_TEMPLATE_DIR="apl"
-REPAIRQ_DOCKER_DIR_SUFFIX="RepairQ-Docker"
-REPAIRQ_DOCKER_REPOSITORY_URL="https://github.com/RepairQ/${REPAIRQ_DOCKER_DIR_SUFFIX}.git"
-REPAIRQ_DOCKER_GIT=1 # Clones the RepairQ-Docker from git and checkout to a new branch
-REPAIRQ_DOCKER_DIR=${REPAIRQ_LOCAL_PROJECTS_DIR}/${REPAIRQ_DOCKER_DIR_SUFFIX}
-REPAIRQ_USER_SPECIFIC_DOCKER_DIR=""
+            echo $'\nInstalling Docker:'
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+            sudo add-apt-repository \
+               "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+               $(lsb_release -cs) \
+               stable"
 
-echo $'Starting the installation\n'
+            sudo apt-get update
+            sudo apt-get install docker-ce
 
-check_requirements
-#create_work_dir
-#clone_docker_repo
-#new_branch_checkout
-configure_installation_files
+            echo $'\nChecking Docker version:'
+            docker -v
+            echo $'\nChecking Docker installation:'
+            sudo docker run hello-world
+        fi
+    fi
+    echo $'Docker              -> OK'
 
-echo $'\nInstallation finished'
+    # Checking and installing Docker Compose
+    if ! docker_compose_loc="$(type -p "docker-compose")" || [[ -z ${docker_compose_loc} ]]; then
+        read -rp $'\nDocker Compose is required but not found, do you want to install Docker Compose now? [y/n]: ' REPLY
+        if [[ ${REPLY,,} =~ ^(y|yes|j|ja|s|si|o|oui)$ ]]; then
+            echo $'\nInstalling Docker Compose:'
+            curl -L https://github.com/docker/compose/releases/download/latest/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+
+            echo $'\nChecking Docker Compose version:'
+            docker-compose --version
+        fi
+    fi
+    echo 'Docker Compose      -> OK'
+}
